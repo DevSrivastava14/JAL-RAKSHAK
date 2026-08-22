@@ -2,6 +2,7 @@ import asyncio
 import logging
 from typing import Any, Dict, List
 from app.database.connection import get_database
+import osmnx as ox
 
 logger = logging.getLogger("jalrakshak.seed")
 
@@ -847,136 +848,77 @@ SENSORS_DATA: List[Dict[str, Any]] = [
 # =====================================================================
 # 4. SEED INFRASTRUCTURE ASSETS DATA
 # =====================================================================
-INFRASTRUCTURE_DATA: List[Dict[str, Any]] = [
-    {
-        "id": "INF-PUMP-01",
-        "city_id": "mumbai",
-        "name": "Britannia Stormwater Pumping Station",
-        "type": "HEAVY_PUMP_STATION",
-        "category": "Drainage Facility",
-        "categoryType": "DRAINAGE",
-        "location": "Reay Road / Britannia Jn",
-        "ward": "F/South Ward",
-        "nearbyFloodZone": "Hindmata & Dadar TT Lowland",
-        "currentFloodRisk": "HIGH",
-        "impactSeverity": "HIGH",
-        "operationalStatus": "Operational Max (6/6 Turbines)",
-        "operationalStatusType": "OPERATIONAL",
-        "installedPumps": 6,
-        "activePumps": 6,
-        "totalCapacityLPS": 36000,
-        "currentDischargeLPS": 35200,
-        "estimatedWaterDepthM": 1.10,
-        "safeThresholdM": 1.50,
-        "dailyUsersAffected": 250000,
-        "operator": "Storm Water Drains (SWD) Department, BMC",
-        "contactDesk": "+91 22 2371 4422 / Chief Engineer SWD",
-        "powerSource": "Dual Grid + 1500kVA Diesel Generator (Online)",
-        "status": "OPERATIONAL_MAX",
-        "waterInflowLevelM": 3.10,
-        "dischargeOutfall": "Mumbai Harbour Basin",
-        "lastMaintenance": "2026-08-10",
-        "scadaControlled": True,
-        "healthScore": 97,
-        "riskDimensions": {
-            "accessDisruption": 40,
-            "structuralExposure": 60,
-            "utilityDisruption": 20,
-            "emergencyImportance": 96
-        }
-    },
-    {
-        "id": "INF-PUMP-02",
-        "city_id": "mumbai",
-        "name": "Haji Ali Stormwater Pumping Station",
-        "type": "HEAVY_PUMP_STATION",
-        "category": "Drainage Facility",
-        "categoryType": "DRAINAGE",
-        "location": "Haji Ali Bay Outfall",
-        "ward": "D-Ward",
-        "nearbyFloodZone": "Haji Ali Coastal Basin",
-        "currentFloodRisk": "LOW",
-        "impactSeverity": "LOW",
-        "operationalStatus": "Operational (5/6 Pumps Active)",
-        "operationalStatusType": "OPERATIONAL",
-        "installedPumps": 6,
-        "activePumps": 5,
-        "totalCapacityLPS": 36000,
-        "currentDischargeLPS": 29800,
-        "estimatedWaterDepthM": 0.30,
-        "safeThresholdM": 1.20,
-        "dailyUsersAffected": 180000,
-        "operator": "BMC Storm Water Drains",
-        "contactDesk": "+91 22 2351 7788 / Station Supt",
-        "powerSource": "Grid Power Normal",
-        "status": "OPERATIONAL",
-        "waterInflowLevelM": 2.20,
-        "dischargeOutfall": "Arabian Sea (Direct)",
-        "lastMaintenance": "2026-08-14",
-        "scadaControlled": True,
-        "healthScore": 92,
-        "riskDimensions": {
-            "accessDisruption": 15,
-            "structuralExposure": 25,
-            "utilityDisruption": 10,
-            "emergencyImportance": 85
-        }
-    },
-    {
-        "id": "INF-TRN-01",
-        "city_id": "mumbai",
-        "name": "Kurla Railway Station (Central & Harbour)",
-        "type": "TRANSIT_LIFELINE",
-        "category": "Transit Lifeline",
-        "categoryType": "TRANSIT",
-        "location": "Kurla West (L-Ward)",
-        "ward": "Kurla West (L-Ward)",
-        "nearbyFloodZone": "Kurla West & Mithi River Basin Zone",
-        "currentFloodRisk": "CRITICAL",
-        "impactSeverity": "CRITICAL",
-        "operationalStatus": "Service Restricted",
-        "operationalStatusType": "RESTRICTED",
-        "estimatedWaterDepthM": 0.85,
-        "safeThresholdM": 0.20,
-        "dailyUsersAffected": 380000,
-        "operator": "Central Railway Mumbai Division",
-        "contactDesk": "+91 22 2503 2345 / Disaster Cell",
-        "status": "RESTRICTED",
-        "riskDimensions": {
-            "accessDisruption": 90,
-            "structuralExposure": 75,
-            "utilityDisruption": 65,
-            "emergencyImportance": 98
-        }
-    },
-    {
-        "id": "INF-HOSP-01",
-        "city_id": "mumbai",
-        "name": "Lokmanya Tilak Municipal Hospital (Sion Hospital)",
-        "type": "CRITICAL_HEALTHCARE",
-        "category": "Critical Healthcare",
-        "categoryType": "HEALTHCARE",
-        "location": "Sion West (F/North Ward)",
-        "ward": "Sion West (F/North Ward)",
-        "nearbyFloodZone": "Sion Circle & Gandhi Market Basin",
-        "currentFloodRisk": "CRITICAL",
-        "impactSeverity": "CRITICAL",
-        "operationalStatus": "Barrier Deployed (Ambulances Only)",
-        "operationalStatusType": "RESTRICTED",
-        "estimatedWaterDepthM": 0.45,
-        "safeThresholdM": 0.15,
-        "dailyUsersAffected": 12000,
-        "operator": "Brihanmumbai Municipal Corporation (BMC)",
-        "contactDesk": "+91 22 2407 6381 / Casualty Wing",
-        "status": "RESTRICTED",
-        "riskDimensions": {
-            "accessDisruption": 85,
-            "structuralExposure": 40,
-            "utilityDisruption": 30,
-            "emergencyImportance": 100
-        }
-    }
-]
+
+def fetch_real_infrastructure(city_name="Mumbai, Maharashtra, India", city_id="mumbai") -> List[Dict[str, Any]]:
+    tags = {"amenity": ["hospital", "fire_station", "police"]}
+    
+    try:
+        gdf = ox.features_from_place(city_name, tags=tags)
+        gdf_points = gdf[gdf.geometry.type == 'Point']
+        
+        dynamic_assets = []
+        for idx, row in gdf_points.iterrows():
+            amenity_type = row.get("amenity", "unknown")
+            name = row.get("name", "Unnamed Facility")
+            
+            if str(name) == "nan":
+                name = f"Municipal {amenity_type.replace('_', ' ').title()}"
+                
+            lat = row.geometry.y
+            lng = row.geometry.x
+            
+            if amenity_type == "hospital":
+                infra_type = "CRITICAL_HEALTHCARE"
+                cat_type = "HEALTHCARE"
+            elif amenity_type == "fire_station":
+                infra_type = "FIRE_STATION"
+                cat_type = "EMERGENCY"
+            else:
+                infra_type = "POLICE_STATION"
+                cat_type = "EMERGENCY"
+                
+            asset = {
+                "id": f"INF-DYN-{len(dynamic_assets)}",
+                "city_id": city_id,
+                "name": name,
+                "type": infra_type,
+                "category": amenity_type.replace('_', ' ').title(),
+                "categoryType": cat_type,
+                "location": "Mumbai Catchment Zone", 
+                "ward": "Dynamic OSM Ward",
+                "lat": lat,
+                "lng": lng,
+                "currentFloodRisk": "LOW",
+                "impactSeverity": "LOW",
+                "operationalStatus": "Operational",
+                "operationalStatusType": "OPERATIONAL",
+                "installedPumps": 0,
+                "activePumps": 0,
+                "totalCapacityLPS": 0,
+                "currentDischargeLPS": 0,
+                "estimatedWaterDepthM": 0.0,
+                "safeThresholdM": 1.0,
+                "operator": "State Disaster Management",
+                "contactDesk": "108 Emergency Line",
+                "status": "OPERATIONAL",
+                "healthScore": 100,
+                "riskDimensions": {
+                    "accessDisruption": 10,
+                    "structuralExposure": 10,
+                    "utilityDisruption": 10,
+                    "emergencyImportance": 90
+                }
+            }
+            dynamic_assets.append(asset)
+            if len(dynamic_assets) >= 30:
+                break
+                
+        return dynamic_assets
+
+    except Exception as e:
+        return []
+
+INFRASTRUCTURE_DATA = fetch_real_infrastructure()
 
 # =====================================================================
 # 5. SEED DRAINAGE NODES DATA
