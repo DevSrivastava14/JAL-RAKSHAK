@@ -34,12 +34,14 @@ import {
   INFRA_SUMMARY_METRICS
 } from '../mock/infrastructureData';
 import { useAlerts } from '../hooks/useFloodData';
+import { apiClient } from '../services/apiClient';
 
 export function Infrastructure() {
   const { dispatchAlert } = useAlerts();
 
-  // Local state for assets list
+  // State for assets list from API with fallback
   const [assetsList, setAssetsList] = useState(INFRASTRUCTURE_ASSETS);
+  const [loading, setLoading] = useState(false);
 
   // Filter & Search State
   const [filterType, setFilterType] = useState('ALL'); // ALL, CRITICAL, HIGH, OPERATIONAL, AFFECTED
@@ -51,6 +53,25 @@ export function Infrastructure() {
   // Broadcast Alert Modal State
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
   const [modalInitialWard, setModalInitialWard] = useState('Kurla West');
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadInfra() {
+      try {
+        setLoading(true);
+        const data = await apiClient.getInfrastructure('mumbai');
+        if (isMounted && Array.isArray(data) && data.length > 0) {
+          setAssetsList(data);
+        }
+      } catch (err) {
+        console.warn('Backend API /infrastructure/mumbai unavailable, using local mock infrastructure:', err.message);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+    loadInfra();
+    return () => { isMounted = false; };
+  }, []);
 
   // Active Selected Asset
   const selectedAsset = assetsList.find(a => a.id === selectedAssetId) || assetsList[0];

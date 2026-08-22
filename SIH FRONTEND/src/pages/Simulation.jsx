@@ -34,6 +34,7 @@ import {
   runModularSimulation
 } from '../services/simulationEngine';
 import { useAlerts } from '../hooks/useFloodData';
+import { apiClient } from '../services/apiClient';
 
 export function Simulation() {
   const { dispatchAlert } = useAlerts();
@@ -46,27 +47,68 @@ export function Simulation() {
     drainageBlockage: 40
   });
 
+  const [presetScenarios, setPresetScenarios] = useState(PRESET_SCENARIOS);
   const [activePresetId, setActivePresetId] = useState('scen-moderate-downpour');
   const [isComputing, setIsComputing] = useState(false);
-  const [simulationResult, setSimulationResult] = useState(null);
+  const [simulationResult, setSimulationResult] = useState(() => runModularSimulation({
+    rainfallIntensity: 75,
+    rainfallDuration: 120,
+    drainageEfficiency: 70,
+    drainageBlockage: 40
+  }));
 
   // Broadcast Alert Modal
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
 
-  // Initial calculation on mount
+  // Fetch preset scenarios and run initial simulation against backend API on mount
   useEffect(() => {
-    const res = runModularSimulation(params);
-    setSimulationResult(res);
+    let isMounted = true;
+    async function initSim() {
+      try {
+        const scenarios = await apiClient.getSimulationScenarios();
+        if (isMounted && Array.isArray(scenarios) && scenarios.length > 0) {
+          setPresetScenarios(scenarios);
+        }
+      } catch (err) {
+        // Keep PRESET_SCENARIOS
+      }
+
+      try {
+        const res = await apiClient.runSimulation(params);
+        if (isMounted && res && res.floodProbability !== undefined) {
+          setSimulationResult(res);
+        }
+      } catch (err) {
+        console.warn('Backend API /simulation unavailable, using in-browser solver:', err.message);
+        if (isMounted) {
+          setSimulationResult(runModularSimulation(params));
+        }
+      }
+    }
+    initSim();
+    return () => { isMounted = false; };
   }, []);
 
-  const handleSimulate = (overrideParams) => {
+  const handleSimulate = async (overrideParams) => {
     const targetParams = overrideParams || params;
     setIsComputing(true);
+    try {
+      const res = await apiClient.runSimulation(targetParams);
+      if (res && res.floodProbability !== undefined) {
+        setSimulationResult(res);
+        setIsComputing(false);
+        return;
+      }
+    } catch (err) {
+      console.warn('Backend API /simulation unavailable, fallback to local solver:', err.message);
+    }
+
+    // Local fallback solver
     setTimeout(() => {
       const res = runModularSimulation(targetParams);
       setSimulationResult(res);
       setIsComputing(false);
-    }, 280); // Realistic slight solver delay
+    }, 180);
   };
 
   const handlePresetSelect = (preset) => {
@@ -79,9 +121,7 @@ export function Simulation() {
     setActivePresetId('custom');
     const updated = { ...params, [key]: Number(value) };
     setParams(updated);
-    // Instant recalculation
-    const res = runModularSimulation(updated);
-    setSimulationResult(res);
+    handleSimulate(updated);
   };
 
   const handleResetToBaseline = () => {
@@ -153,8 +193,9 @@ export function Simulation() {
         <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>
           Quick Scenario Presets:
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
-          {PRESET_SCENARIOS.map(preset => {
+        {/* Preset Selector Buttons */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 10, marginBottom: 20 }}>
+          {presetScenarios.map(preset => {
             const isSelected = activePresetId === preset.id;
             return (
               <button
