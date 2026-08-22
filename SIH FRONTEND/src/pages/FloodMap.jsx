@@ -111,7 +111,8 @@ export function FloodMap() {
   const [hospitalsList, setHospitalsList] = useState(HOSPITALS_DATA);
   const [schoolsList, setSchoolsList] = useState(SCHOOLS_DATA);
   const [emergencyList, setEmergencyList] = useState(EMERGENCY_STATIONS_DATA);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [mapRiskColors, setMapRiskColors] = useState(RISK_COLORS);
 
   // Layer Visibility Controls
   const [layers, setLayers] = useState({
@@ -147,13 +148,34 @@ export function FloodMap() {
     async function loadMapData() {
       try {
         setLoading(true);
-        const data = await apiClient.getFloodMap('mumbai');
+        const [data, zoneDetails] = await Promise.all([
+          apiClient.getFloodMap('mumbai'),
+          apiClient.getZones('mumbai')
+        ]);
         if (isMounted && data) {
-          if (data.zones && data.zones.length > 0) setZonesList(data.zones);
-          if (data.roads && data.roads.length > 0) setRoadsList(data.roads);
-          if (data.drainage && data.drainage.length > 0) setDrainageList(data.drainage);
-          if (data.hospitals && data.hospitals.length > 0) setHospitalsList(data.hospitals);
-          if (data.shelters && data.shelters.length > 0) setSchoolsList(data.shelters);
+          const features = data.geojson?.features || [];
+          const zonesById = new Map((zoneDetails || []).map(zone => [zone.id, zone]));
+          const toLayerItem = feature => ({
+            ...feature.properties,
+            ...(feature.properties?.layerType === 'FLOOD_ZONE' ? zonesById.get(feature.id) : {}),
+            id: feature.id || feature.properties?.zone_id || feature.properties?.road_id || feature.properties?.drain_id,
+              polygonCoords: feature.properties?.polygonCoords || feature.geometry?.coordinates?.[0]?.map(([lng, lat]) => [lat, lng]),
+            coordinates: feature.properties?.coordinates || feature.geometry?.coordinates?.map(([lng, lat]) => [lat, lng]),
+            lat: feature.properties?.lat ?? feature.geometry?.coordinates?.[1],
+            lng: feature.properties?.lng ?? feature.geometry?.coordinates?.[0]
+          });
+          const apiZones = features.filter(feature => feature.properties?.layerType === 'FLOOD_ZONE').map(toLayerItem);
+          const apiRoads = features.filter(feature => feature.properties?.layerType === 'ROAD_NETWORK').map(toLayerItem);
+          const apiDrainage = features.filter(feature => feature.properties?.layerType === 'DRAINAGE_NODE').map(toLayerItem);
+
+          if (apiZones.length > 0) {
+            setZonesList(apiZones);
+            setSelectedFeature({ type: 'FLOOD_ZONE', data: apiZones[0] });
+          }
+          if (apiRoads.length > 0) setRoadsList(apiRoads);
+          if (apiDrainage.length > 0) setDrainageList(apiDrainage);
+          if (data.risk_colors) setMapRiskColors(data.risk_colors);
+          if (data.center) setMapTarget({ center: data.center, zoom: data.zoom || 13 });
         }
       } catch (err) {
         console.warn('Backend API /flood-map/mumbai unavailable, using local GIS layers:', err.message);
@@ -238,6 +260,11 @@ export function FloodMap() {
               GIS FLOOD COMMAND MATRIX
             </span>
           </div>
+            {loading && (
+              <span style={{ fontSize: '0.72rem', color: 'var(--color-primary-light)' }}>
+                Syncing live GIS data...
+              </span>
+            )}
 
           {/* Layer Toggle Badges */}
           <button
@@ -257,7 +284,7 @@ export function FloodMap() {
               gap: 6
             }}
           >
-            <Droplets size={14} /> Flood Zones ({FLOOD_RISK_ZONES.length})
+            <Droplets size={14} /> Flood Zones ({zonesList.length})
           </button>
 
           <button
@@ -277,7 +304,7 @@ export function FloodMap() {
               gap: 6
             }}
           >
-            <Navigation size={14} /> Roads ({ROADS_DATA.length})
+            <Navigation size={14} /> Roads ({roadsList.length})
           </button>
 
           <button
@@ -297,7 +324,7 @@ export function FloodMap() {
               gap: 6
             }}
           >
-            <Radio size={14} /> Drainage Nodes ({DRAINAGE_NODES.length})
+            <Radio size={14} /> Drainage Nodes ({drainageList.length})
           </button>
 
           <button
@@ -413,8 +440,8 @@ export function FloodMap() {
         {/* Leaflet Map Frame */}
         <div className="glass-panel" style={{ padding: 0, position: 'relative', overflow: 'hidden' }}>
           <MapContainer
-            center={[19.0688, 72.8600]}
-            zoom={12}
+            center={mapTarget.center}
+            zoom={mapTarget.zoom}
             scrollWheelZoom={true}
             style={{ width: '100%', height: '100%' }}
           >
@@ -429,7 +456,7 @@ export function FloodMap() {
             {/* 1. Flood Risk Zones (Polygons) */}
             {layers.floodZones && filteredZones.map(zone => {
               const isSelected = selectedFeature?.data?.id === zone.id;
-              const color = getFeatureRiskColor(zone.riskLevel);
+              const color = mapRiskColors[zone.riskLevel] || getFeatureRiskColor(zone.riskLevel);
               const fillColor = getFeatureRiskBg(zone.riskLevel);
 
               return (
