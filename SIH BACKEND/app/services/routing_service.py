@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
-from app.database.connection import get_database
 import osmnx as ox
 import networkx as nx
 from geopy.geocoders import Nominatim
+import os
 
 MUMBAI_LOCATIONS = [
     {"id": "LOC-KUR", "name": "Kurla (Central Catchment)", "shortName": "Kurla", "lat": 19.0688, "lng": 72.8797, "risk": "CRITICAL"},
@@ -89,11 +89,14 @@ class FloodAwareRoutingEngine(BaseRoutingProvider):
     """
 
     def __init__(self):
-        self.place_name = "Mumbai, Maharashtra, India"
-
-        self.graph = ox.graph_from_place(self.place_name,network_type="drive")
-        self.graph = ox.routing.add_edge_speeds(self.graph)
-        self.graph = ox.routing.add_travel_time(self.graph)
+        filepath = "mumbai_graph.graphml"
+        
+        if os.path.exists(filepath):
+            self.graph = ox.load_graphml(filepath)
+        else:
+            self.graph = ox.graph_from_point((19.0549990, 72.8692035), dist=10000, network_type="drive")
+            self.graph = ox.routing.add_edge_speeds(self.graph)
+            self.graph = ox.routing.add_travel_time(self.graph)
 
         self.geolocator = Nominatim(user_agent="jal_rakshak_routing_app")
 
@@ -166,7 +169,7 @@ class FloodAwareRoutingEngine(BaseRoutingProvider):
             "destination": to_name,
             "is_emergency_mode": is_emergency_mode,
             "recommended_route": dynamic_route,
-            "alternative_routes": alternatives,
+            "alternative_routes": [],
             "all_routes": [dynamic_route],
             "nearby_facilities": EMERGENCY_FACILITIES,
             "active_hazards": WARNING_HAZARDS
