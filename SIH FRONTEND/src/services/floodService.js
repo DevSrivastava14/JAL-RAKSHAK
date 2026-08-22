@@ -84,7 +84,11 @@ export const floodService = {
     try {
       const pred = await apiClient.getZonePrediction(zoneId);
       if (pred && pred.hourlyNowcast) {
-        return pred.hourlyNowcast;
+        return pred.hourlyNowcast.map(point => ({
+          ...point,
+          waterLevelKurlaM: point.waterLevelKurlaM ?? point.waterLevelM,
+          rainfallIntensityMmHr: point.rainfallIntensityMmHr ?? point.rainfallMmHr
+        }));
       }
       return [...NOWCAST_TIMELINE];
     } catch (err) {

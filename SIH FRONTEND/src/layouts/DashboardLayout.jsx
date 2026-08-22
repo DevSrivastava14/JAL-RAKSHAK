@@ -42,7 +42,7 @@ export function DashboardLayout() {
               <AlertCircle size={14} /> ACTIVE CRITICAL ADVISORY:
             </span>
             <span style={{ color: 'var(--text-main)' }}>
-              Mithi River Level at 3.42m (Danger: 3.00m) • High Tide Peak 4.54m at 14:45 IST
+              {overview?.crisisTitle || 'Flood monitoring active'} • High Tide Peak {overview?.tideInfo?.peakTideHeightM ?? '--'}m at {overview?.tideInfo?.peakTideTime || '--'}
             </span>
           </div>
 

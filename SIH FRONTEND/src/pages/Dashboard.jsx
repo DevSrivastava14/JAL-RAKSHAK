@@ -1,10 +1,9 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import {
   AlertTriangle,
   CloudRain,
   Activity,
-  Layers,
   MapPin,
   Server,
   PlayCircle,
@@ -23,12 +22,31 @@ import { useWards, useSensors, useNowcastForecast } from '../hooks/useFloodData'
 
 export function Dashboard() {
   const navigate = useNavigate();
-  const { allWards, loading: wardsLoading } = useWards();
-  const { allSensors, loading: sensorsLoading } = useSensors();
+  const { overview } = useOutletContext() || {};
+  const { allWards } = useWards();
+  const { allSensors } = useSensors();
   const { timeline } = useNowcastForecast();
 
   // Top critical wards sorted by risk score
   const criticalWards = [...allWards].sort((a, b) => b.riskScore - a.riskScore).slice(0, 5);
+  const maxInundationWard = allWards.reduce(
+    (maxWard, ward) => ward.inundationDepthM > (maxWard?.inundationDepthM || 0) ? ward : maxWard,
+    null
+  );
+  const kurlaWard = allWards.find(ward => ward.id === 'ZONE-KUR-01');
+  const radarSensor = allSensors
+    .filter(sensor => sensor.type === 'PRECIPITATION_INTENSITY')
+    .sort((a, b) => (b.rawNumeric || 0) - (a.rawNumeric || 0))[0];
+  const tideSensor = allSensors.find(sensor => sensor.type === 'SEA_TIDE_LEVEL');
+  const sensorCount = overview?.activeSensors;
+  const pumpCount = overview?.activePumps;
+  const tideInfo = overview?.tideInfo;
+  const sensorOperationalPct = sensorCount?.total
+    ? ((sensorCount.online / sensorCount.total) * 100).toFixed(1)
+    : '--';
+  const standbyPumps = pumpCount ? pumpCount.total - pumpCount.running : null;
+  const crisisStatus = overview?.crisisStatus || 'NORMAL';
+  const crisisTitle = overview?.crisisTitle || 'Flood monitoring active';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -56,12 +74,12 @@ export function Dashboard() {
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-              <h2 style={{ fontSize: '1.35rem', color: '#fff' }}>Mumbai Flood Nowcasting Command Center</h2>
-              <StatusBadge status="ORANGE_ALERT" label="ORANGE ALERT" />
+              <h2 style={{ fontSize: '1.35rem', color: '#fff' }}>{overview?.cityName || 'City Flood Command Center'}</h2>
+              <StatusBadge status={crisisStatus} />
             </div>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-              Heavy convective precipitation in progress. High tide peak (4.54m) expected at <strong>14:45 IST</strong>. 
-              Lead time to peak flood arrival in Kurla: <strong>42 minutes</strong>.
+              {crisisTitle}. High tide peak ({tideInfo?.peakTideHeightM ?? '--'}m) expected at <strong>{tideInfo?.peakTideTime || '--'}</strong>.
+              {' '}Lead time to peak flood arrival: <strong>{overview?.leadTimeToPeak || '--'}</strong>.
             </p>
           </div>
         </div>
@@ -92,57 +110,57 @@ export function Dashboard() {
       }}>
         <MetricCard
           title="City Flood Risk Index"
-          value="78"
+          value={overview?.overallRiskScore ?? '--'}
           unit="/ 100"
-          subtitle="High Vulnerability"
+          subtitle={crisisTitle}
           icon={AlertTriangle}
           colorVariant="critical"
-          status="CRITICAL"
-          trend="+12% in last 1hr"
+          status={crisisStatus}
+          trend={overview?.overallRiskScore != null ? `${overview.overallRiskScore}/100 current` : ''}
           trendPositive={false}
         />
         <MetricCard
           title="Avg Rainfall Intensity"
-          value="48.5"
+          value={overview?.rainfallStats?.currentAvgMmHr ?? '--'}
           unit="mm/h"
-          subtitle="Peak: 71.0 mm/h (Santacruz)"
+          subtitle={radarSensor ? `Peak: ${radarSensor.jitterNumeric ?? radarSensor.rawNumeric} ${radarSensor.unit} (${radarSensor.name})` : 'Awaiting sensor data'}
           icon={CloudRain}
           colorVariant="warning"
           status="WARNING"
-          trend="+8.2 mm/h"
+          trend={radarSensor?.trend || ''}
           trendPositive={false}
         />
         <MetricCard
           title="Max Inundation Depth"
-          value="1.40"
+          value={maxInundationWard?.inundationDepthM ?? '--'}
           unit="meters"
-          subtitle="Hindmata Lowland Junction"
+          subtitle={maxInundationWard?.name || 'Awaiting ward data'}
           icon={Activity}
           colorVariant="critical"
           status="CRITICAL"
-          trend="Rising (+0.18m/h)"
+          trend={maxInundationWard?.trend || ''}
           trendPositive={false}
         />
         <MetricCard
           title="IoT Sensors Online"
-          value="142"
-          unit="/ 148"
-          subtitle="Radar, Ultrasonic, AWS"
+          value={sensorCount?.online ?? '--'}
+          unit={sensorCount ? `/ ${sensorCount.total}` : ''}
+          subtitle="Radar, ultrasonic, and weather sensors"
           icon={Radio}
           colorVariant="safe"
           status="NORMAL"
-          trend="96.0% operational"
+          trend={sensorCount ? `${sensorOperationalPct}% operational` : ''}
           trendPositive={true}
         />
         <MetricCard
           title="Storm Dewatering Pumps"
-          value="38"
-          unit="/ 42"
-          subtitle="Discharging 184,000 LPS"
+          value={pumpCount?.running ?? '--'}
+          unit={pumpCount ? `/ ${pumpCount.total}` : ''}
+          subtitle={pumpCount ? `Discharging ${pumpCount.capacityLPS.toLocaleString()} LPS` : 'Awaiting pump data'}
           icon={Server}
           colorVariant="primary"
           status="OPERATIONAL"
-          trend="4 standby ready"
+          trend={standbyPumps != null ? `${standbyPumps} standby ready` : ''}
           trendPositive={true}
         />
       </div>
@@ -169,9 +187,9 @@ export function Dashboard() {
           </div>
           <HydrographChart
             timeline={timeline}
-            dangerLevel={3.00}
-            warningLevel={2.70}
-            locationName="Kurla West (Mithi River Basin)"
+            dangerLevel={kurlaWard?.dangerLevelM ?? 3.00}
+            warningLevel={kurlaWard?.warningLevelM ?? 2.70}
+            locationName={kurlaWard?.name || 'Kurla West Catchment'}
           />
         </div>
 
@@ -186,7 +204,10 @@ export function Dashboard() {
           </div>
 
           <div style={{ padding: '10px 0' }}>
-            <RadarWidget intensityMmHr={68.4} station="Santacruz Doppler Radar (IMD)" />
+            <RadarWidget
+              intensityMmHr={radarSensor?.jitterNumeric ?? radarSensor?.rawNumeric ?? '--'}
+              station={radarSensor?.name || 'Weather radar unavailable'}
+            />
           </div>
 
           <div style={{
@@ -201,15 +222,16 @@ export function Dashboard() {
           }}>
             <div>
               <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-warning)' }}>
-                TIDAL BACKPRESSURE WARNING
+                {tideInfo?.isTidalLockActive ? 'TIDAL BACKPRESSURE WARNING' : 'TIDAL STATUS NORMAL'}
               </div>
               <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                Current Coastal Tide: <strong>3.82m CD</strong> (Locks gravity outfalls)
+                Current Coastal Tide: <strong>{tideInfo?.currentHeightM ?? tideSensor?.rawNumeric ?? '--'}m CD</strong>
+                {tideInfo?.isTidalLockActive ? ' (Locks gravity outfalls)' : ''}
               </div>
             </div>
             <div className="mono-text" style={{ textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-main)' }}>
-              Peak High Tide: <strong style={{ color: 'var(--color-critical)' }}>4.54m</strong><br />
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>ETA: 14:45 IST</span>
+              Peak High Tide: <strong style={{ color: 'var(--color-critical)' }}>{tideInfo?.peakTideHeightM ?? '--'}m</strong><br />
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>ETA: {tideInfo?.peakTideTime || '--'}</span>
             </div>
           </div>
         </div>
