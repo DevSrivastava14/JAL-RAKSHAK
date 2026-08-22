@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Globe,
   MapPin,
@@ -28,12 +28,58 @@ import {
 import { StatusBadge } from '../components/common/StatusBadge';
 import { MetricCard } from '../components/common/MetricCard';
 import { INDIAN_CITIES } from '../mock/citiesData';
+import { apiClient } from '../services/apiClient';
 
 export function Cities() {
+  // Cities list from API with high-fidelity fallback
+  const [citiesList, setCitiesList] = useState(INDIAN_CITIES);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
   // Selected City State (Default: Mumbai)
   const [selectedCityId, setSelectedCityId] = useState('mumbai');
+  const [selectedCityDetail, setSelectedCityDetail] = useState(null);
 
-  const selectedCity = INDIAN_CITIES.find(c => c.id === selectedCityId) || INDIAN_CITIES[0];
+  useEffect(() => {
+    let isMounted = true;
+    async function loadCities() {
+      try {
+        setLoading(true);
+        const data = await apiClient.getCities();
+        if (isMounted && Array.isArray(data) && data.length > 0) {
+          setCitiesList(data);
+          setError(null);
+        }
+      } catch (err) {
+        console.warn('Backend API /cities unavailable, using local mock data:', err.message);
+        if (isMounted) setError(err.message);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+    loadCities();
+    return () => { isMounted = false; };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadSelectedCity() {
+      try {
+        const cityData = await apiClient.getCity(selectedCityId);
+        if (isMounted && cityData && cityData.id) {
+          setSelectedCityDetail(cityData);
+        }
+      } catch (err) {
+        // Fallback silently to array find
+      }
+    }
+    if (selectedCityId) {
+      loadSelectedCity();
+    }
+    return () => { isMounted = false; };
+  }, [selectedCityId]);
+
+  const selectedCity = selectedCityDetail || citiesList.find(c => c.id === selectedCityId) || citiesList[0] || INDIAN_CITIES[0];
 
   const getRiskBadgeColor = (risk) => {
     switch (risk) {
@@ -111,7 +157,7 @@ export function Cities() {
             Select City:
           </span>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap' }}>
-            {INDIAN_CITIES.map(city => {
+            {citiesList.map(city => {
               const isSelected = selectedCityId === city.id;
               const isCritical = city.floodRisk === 'CRITICAL';
 
@@ -309,7 +355,7 @@ export function Cities() {
             <path d="M 28 56 Q 40 60 52 64" fill="none" stroke="rgba(0, 180, 216, 0.2)" strokeWidth="1.2" />
 
             {/* City Markers */}
-            {INDIAN_CITIES.map(city => {
+            {citiesList.map(city => {
               const isSelected = selectedCityId === city.id;
               const isCritical = city.floodRisk === 'CRITICAL';
 
@@ -642,7 +688,7 @@ export function Cities() {
               </tr>
             </thead>
             <tbody>
-              {INDIAN_CITIES.map(city => {
+              {citiesList.map(city => {
                 const isSelected = selectedCityId === city.id;
                 const isCritical = city.floodRisk === 'CRITICAL';
                 const isHigh = city.floodRisk === 'HIGH';

@@ -52,6 +52,7 @@ import {
   getFeatureRiskBg
 } from '../mock/gisData';
 import { useAlerts } from '../hooks/useFloodData';
+import { apiClient } from '../services/apiClient';
 
 // Custom Tactical Leaflet Pin Icons
 const createDivIcon = (bgColor, borderColor, textSymbol, shadowColor) => {
@@ -103,6 +104,15 @@ function MapController({ targetCenter, targetZoom }) {
 export function FloodMap() {
   const { dispatchAlert } = useAlerts();
 
+  // Real-time GIS Datasets with fallback
+  const [zonesList, setZonesList] = useState(FLOOD_RISK_ZONES);
+  const [roadsList, setRoadsList] = useState(ROADS_DATA);
+  const [drainageList, setDrainageList] = useState(DRAINAGE_NODES);
+  const [hospitalsList, setHospitalsList] = useState(HOSPITALS_DATA);
+  const [schoolsList, setSchoolsList] = useState(SCHOOLS_DATA);
+  const [emergencyList, setEmergencyList] = useState(EMERGENCY_STATIONS_DATA);
+  const [loading, setLoading] = useState(false);
+
   // Layer Visibility Controls
   const [layers, setLayers] = useState({
     floodZones: true,
@@ -132,44 +142,67 @@ export function FloodMap() {
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
   const [modalInitialWard, setModalInitialWard] = useState('Kurla West');
 
+  useEffect(() => {
+    let isMounted = true;
+    async function loadMapData() {
+      try {
+        setLoading(true);
+        const data = await apiClient.getFloodMap('mumbai');
+        if (isMounted && data) {
+          if (data.zones && data.zones.length > 0) setZonesList(data.zones);
+          if (data.roads && data.roads.length > 0) setRoadsList(data.roads);
+          if (data.drainage && data.drainage.length > 0) setDrainageList(data.drainage);
+          if (data.hospitals && data.hospitals.length > 0) setHospitalsList(data.hospitals);
+          if (data.shelters && data.shelters.length > 0) setSchoolsList(data.shelters);
+        }
+      } catch (err) {
+        console.warn('Backend API /flood-map/mumbai unavailable, using local GIS layers:', err.message);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+    loadMapData();
+    return () => { isMounted = false; };
+  }, []);
+
   const toggleLayer = (layerKey) => {
     setLayers(prev => ({ ...prev, [layerKey]: !prev[layerKey] }));
   };
 
   // Filtered flood zones based on risk filter and search query
-  const filteredZones = FLOOD_RISK_ZONES.filter(zone => {
+  const filteredZones = zonesList.filter(zone => {
     if (riskFilter !== 'ALL' && zone.riskLevel !== riskFilter) return false;
     if (searchQuery.trim() && !zone.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
 
   // Filtered roads
-  const filteredRoads = ROADS_DATA.filter(road => {
+  const filteredRoads = roadsList.filter(road => {
     if (riskFilter !== 'ALL' && road.riskLevel !== riskFilter) return false;
     if (searchQuery.trim() && !road.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
 
   // Filtered drainage nodes
-  const filteredDrainage = DRAINAGE_NODES.filter(drain => {
+  const filteredDrainage = drainageList.filter(drain => {
     if (searchQuery.trim() && !drain.name.toLowerCase().includes(searchQuery.toLowerCase()) && !drain.ward.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
 
   // Filtered hospitals
-  const filteredHospitals = HOSPITALS_DATA.filter(hosp => {
+  const filteredHospitals = hospitalsList.filter(hosp => {
     if (searchQuery.trim() && !hosp.name.toLowerCase().includes(searchQuery.toLowerCase()) && !hosp.ward.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
 
   // Filtered schools
-  const filteredSchools = SCHOOLS_DATA.filter(school => {
+  const filteredSchools = schoolsList.filter(school => {
     if (searchQuery.trim() && !school.name.toLowerCase().includes(searchQuery.toLowerCase()) && !school.ward.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
 
   // Filtered emergency stations
-  const filteredEmergency = EMERGENCY_STATIONS_DATA.filter(stn => {
+  const filteredEmergency = emergencyList.filter(stn => {
     if (searchQuery.trim() && !stn.name.toLowerCase().includes(searchQuery.toLowerCase()) && !stn.ward.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });

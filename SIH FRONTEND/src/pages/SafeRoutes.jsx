@@ -32,34 +32,69 @@ import {
   EMERGENCY_FACILITIES,
   getSafeRoutes
 } from '../mock/routesData';
+import { apiClient } from '../services/apiClient';
 
 export function SafeRoutes() {
   // Route Selection Inputs
   const [fromLocation, setFromLocation] = useState('Kurla');
   const [toLocation, setToLocation] = useState('Dadar');
 
+  // Locations list from API
+  const [locationsList, setLocationsList] = useState(MUMBAI_LOCATIONS);
+
   // Emergency Mode Toggle
   const [isEmergencyMode, setIsEmergencyMode] = useState(false);
 
   // Route Results & Selected Active Route
-  const [routes, setRoutes] = useState([]);
-  const [selectedRouteId, setSelectedRouteId] = useState(null);
+  const [routes, setRoutes] = useState(() => getSafeRoutes('Kurla', 'Dadar', false));
+  const [selectedRouteId, setSelectedRouteId] = useState('RT-REC-01');
   const [isCalculating, setIsCalculating] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadLocations() {
+      try {
+        const locs = await apiClient.getRoutingLocations('mumbai');
+        if (isMounted && Array.isArray(locs) && locs.length > 0) {
+          setLocationsList(locs);
+        }
+      } catch (err) {
+        // Keep MUMBAI_LOCATIONS
+      }
+    }
+    loadLocations();
+    return () => { isMounted = false; };
+  }, []);
 
   // Initial Route Fetch
   useEffect(() => {
     handleComputeRoutes(fromLocation, toLocation, isEmergencyMode);
   }, []);
 
-  const handleComputeRoutes = (from, to, emgMode) => {
+  const handleComputeRoutes = async (from, to, emgMode) => {
     setIsCalculating(true);
+    try {
+      const res = await apiClient.computeSafeRoutes(from, to, emgMode);
+      if (res && res.recommended_route) {
+        const allRoutes = res.all_routes || [res.recommended_route, ...(res.alternative_routes || [])];
+        setRoutes(allRoutes);
+        const recommended = allRoutes.find(r => r.isRecommended) || allRoutes[0];
+        setSelectedRouteId(recommended ? recommended.id : null);
+        setIsCalculating(false);
+        return;
+      }
+    } catch (err) {
+      console.warn('Backend API /routes/safe unavailable, using local route calculator:', err.message);
+    }
+
+    // Local fallback
     setTimeout(() => {
       const calculated = getSafeRoutes(from, to, emgMode);
       setRoutes(calculated);
       const recommended = calculated.find(r => r.isRecommended) || calculated[0];
       setSelectedRouteId(recommended ? recommended.id : null);
       setIsCalculating(false);
-    }, 250);
+    }, 150);
   };
 
   const handleSwapLocations = () => {
@@ -202,7 +237,7 @@ export function SafeRoutes() {
               className="tactical-input"
               style={{ background: '#0d1728', fontWeight: 600 }}
             >
-              {MUMBAI_LOCATIONS.map(loc => (
+              {locationsList.map(loc => (
                 <option key={loc.id} value={loc.shortName}>
                   {loc.name} ({loc.risk} Risk)
                 </option>
@@ -229,7 +264,7 @@ export function SafeRoutes() {
               className="tactical-input"
               style={{ background: '#0d1728', fontWeight: 600 }}
             >
-              {MUMBAI_LOCATIONS.map(loc => (
+              {locationsList.map(loc => (
                 <option key={loc.id} value={loc.shortName}>
                   {loc.name} ({loc.risk} Risk)
                 </option>

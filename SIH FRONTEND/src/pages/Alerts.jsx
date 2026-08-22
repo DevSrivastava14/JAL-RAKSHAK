@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   AlertTriangle,
   Send,
@@ -32,10 +32,12 @@ import { StatusBadge } from '../components/common/StatusBadge';
 import { InundationBar } from '../components/common/InundationBar';
 import { AlertModal } from '../components/common/AlertModal';
 import { INITIAL_ALERTS_DATA } from '../mock/alertsData';
+import { apiClient } from '../services/apiClient';
 
 export function Alerts() {
-  // Local Mutable State for Alerts (Frontend only)
+  // State for Alerts from API with fallback
   const [alertsList, setAlertsList] = useState(INITIAL_ALERTS_DATA);
+  const [loading, setLoading] = useState(false);
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState('');
@@ -48,6 +50,26 @@ export function Alerts() {
   // New Broadcast Modal State
   const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState(false);
   const [broadcastInitialWard, setBroadcastInitialWard] = useState('Kurla West');
+
+  // Fetch alerts from backend API on mount
+  useEffect(() => {
+    let isMounted = true;
+    async function loadAlerts() {
+      try {
+        setLoading(true);
+        const data = await apiClient.getAlerts('mumbai');
+        if (isMounted && Array.isArray(data) && data.length > 0) {
+          setAlertsList(data);
+        }
+      } catch (err) {
+        console.warn('Backend API /alerts unavailable, using local mock alerts:', err.message);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+    loadAlerts();
+    return () => { isMounted = false; };
+  }, []);
 
   // Summary Metrics
   const activeAlertsCount = alertsList.filter(a => a.status === 'Active' || a.status === 'Dispatched').length;
@@ -95,7 +117,33 @@ export function Alerts() {
   };
 
   // Action: Add new broadcast alert from Modal
-  const handleDispatchNewAlert = (newAlertData) => {
+  const handleDispatchNewAlert = async (newAlertData) => {
+    const payload = {
+      title: newAlertData.title,
+      ward: newAlertData.ward,
+      location: newAlertData.ward,
+      alertType: newAlertData.category || "Emergency Flood Alert",
+      severity: newAlertData.severity || "CRITICAL",
+      description: newAlertData.description,
+      rainfallMmHr: 65.0,
+      waterDepthM: 1.20,
+      floodProbability: 94,
+      affectedPopulation: newAlertData.affectedPopEstimate || 45000,
+      channels: newAlertData.channels || ["Civil Defense SMS Broadcast"],
+      actionItems: newAlertData.actionItems || ["Deploy emergency rescue teams", "Barricade flooded lowlands"],
+      city_id: "mumbai"
+    };
+
+    try {
+      const created = await apiClient.dispatchAlert(payload);
+      if (created && created.id) {
+        setAlertsList(prev => [created, ...prev]);
+        return;
+      }
+    } catch (err) {
+      console.warn('Backend API /alerts/dispatch failed, dispatching locally in state:', err.message);
+    }
+
     const newAlert = {
       id: `ALT-MUM-${Math.floor(10 + Math.random() * 90)}`,
       capCode: `CAP-IN-MH-MUM-2026-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -121,17 +169,6 @@ export function Alerts() {
       triggerFactors: [
         {
           id: "fac-rain-custom",
-          name: "Rainfall Intensity",
-          measuredValue: "65.0 mm/h",
-          contributionPct: 35,
-          severity: "CRITICAL",
-          statusColor: "#ff334b",
-          explanation: "Emergency precipitation rate triggered by manual dispatcher."
-        },
-        {
-          id: "fac-elevation-custom",
-          name: "Elevation & Topography",
-          measuredValue: "Urban Catchment",
           contributionPct: 25,
           severity: "HIGH",
           statusColor: "#ff7700",

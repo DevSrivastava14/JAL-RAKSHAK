@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   TrendingUp,
   Clock,
@@ -33,12 +33,19 @@ import {
   ZONES_PREDICTIONS
 } from '../mock/predictionsData';
 import { useAlerts } from '../hooks/useFloodData';
+import { apiClient } from '../services/apiClient';
 
 export function Predictions() {
   const { dispatchAlert } = useAlerts();
 
+  // Predictions list and metadata from backend API with fallback
+  const [predictionsList, setPredictionsList] = useState(ZONES_PREDICTIONS);
+  const [modelMetadata, setModelMetadata] = useState(AI_MODEL_METADATA);
+  const [loading, setLoading] = useState(false);
+
   // Selected Zone State
-  const [selectedZoneId, setSelectedZoneId] = useState(ZONES_PREDICTIONS[0].id);
+  const [selectedZoneId, setSelectedZoneId] = useState(ZONES_PREDICTIONS[0].id || 'ZONE-KUR-01');
+  const [xaiData, setXaiData] = useState(null);
 
   // Selected Timeline Point State
   const [timelineIndex, setTimelineIndex] = useState(0);
@@ -46,9 +53,66 @@ export function Predictions() {
   // Broadcast Alert Modal State
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
 
+  // 1. Fetch all zone predictions and model metadata on mount
+  useEffect(() => {
+    let isMounted = true;
+    async function loadPredictions() {
+      try {
+        setLoading(true);
+        const data = await apiClient.getPredictions('mumbai');
+        if (isMounted && data) {
+          if (Array.isArray(data.predictions) && data.predictions.length > 0) {
+            // Map predictions to conform with UI format
+            const mapped = data.predictions.map(p => ({
+              ...p,
+              id: p.id || p.zone_id,
+              name: p.zoneName || p.name || p.zone_id,
+              zoneName: p.zoneName || p.name || p.zone_id,
+              hourlyNowcast: p.hourlyNowcast || []
+            }));
+            setPredictionsList(mapped);
+          }
+          if (data.model_metadata) {
+            setModelMetadata(data.model_metadata);
+          }
+        }
+      } catch (err) {
+        console.warn('Backend API /predictions unavailable, using local mock predictions:', err.message);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+    loadPredictions();
+    return () => { isMounted = false; };
+  }, []);
+
+  // 2. Fetch specific XAI explanation when selected zone changes
+  useEffect(() => {
+    let isMounted = true;
+    async function loadExplanation() {
+      const activeZone = predictionsList.find(z => z.id === selectedZoneId || z.zone_id === selectedZoneId);
+      const zoneKey = activeZone?.zone_id || selectedZoneId;
+      if (!zoneKey) return;
+
+      try {
+        const explanation = await apiClient.getZoneExplanation(zoneKey);
+        if (isMounted && explanation) {
+          setXaiData(explanation);
+        }
+      } catch (err) {
+        // Fall back to zone's existing xaiFactors
+      }
+    }
+    loadExplanation();
+    return () => { isMounted = false; };
+  }, [selectedZoneId, predictionsList]);
+
   // Active Zone Object
-  const selectedZone = ZONES_PREDICTIONS.find(z => z.id === selectedZoneId) || ZONES_PREDICTIONS[0];
-  const activeNowcastPoint = selectedZone.hourlyNowcast[timelineIndex] || selectedZone.hourlyNowcast[0];
+  const selectedZone = predictionsList.find(z => z.id === selectedZoneId || z.zone_id === selectedZoneId) || predictionsList[0] || ZONES_PREDICTIONS[0];
+  const activeNowcastPoint = (selectedZone.hourlyNowcast && selectedZone.hourlyNowcast[timelineIndex]) || (selectedZone.hourlyNowcast && selectedZone.hourlyNowcast[0]) || { timeOffset: '+0h', status: 'Active', waterDepthM: 1.2, floodProbability: 80 };
+
+  // Use dynamically loaded XAI factors if available
+  const displayXaiFactors = xaiData?.xai_factors || selectedZone.xaiFactors || [];
 
   const getFactorIcon = (factorId) => {
     switch (factorId) {
@@ -87,10 +151,10 @@ export function Predictions() {
         {/* Live Model Metadata Badges */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', fontSize: '0.78rem', fontFamily: 'var(--font-mono)' }}>
           <div style={{ padding: '8px 12px', borderRadius: 'var(--radius-md)', background: 'rgba(0, 180, 216, 0.1)', border: '1px solid var(--border-subtle)' }}>
-            Model Confidence: <strong style={{ color: 'var(--color-safe)' }}>{AI_MODEL_METADATA.confidenceEnsemble}%</strong>
+            Model Confidence: <strong style={{ color: 'var(--color-safe)' }}>{modelMetadata.confidenceEnsemble}%</strong>
           </div>
           <div style={{ padding: '8px 12px', borderRadius: 'var(--radius-md)', background: 'rgba(255, 255, 255, 0.04)', border: '1px solid var(--border-subtle)' }}>
-            Latency: <strong style={{ color: 'var(--color-primary-light)' }}>{AI_MODEL_METADATA.inferenceLatencyMs}ms</strong>
+            Latency: <strong style={{ color: 'var(--color-primary-light)' }}>{modelMetadata.inferenceLatencyMs}ms</strong>
           </div>
           <div style={{ padding: '8px 12px', borderRadius: 'var(--radius-md)', background: 'rgba(255, 255, 255, 0.04)', border: '1px solid var(--border-subtle)' }}>
             Radar Feed: <strong style={{ color: '#fff' }}>S-Band (100m Grid)</strong>
@@ -124,8 +188,8 @@ export function Predictions() {
               </tr>
             </thead>
             <tbody>
-              {ZONES_PREDICTIONS.map(zone => {
-                const isSelected = selectedZoneId === zone.id;
+              {predictionsList.map(zone => {
+              const isSelected = selectedZoneId === zone.id || selectedZoneId === zone.zone_id;
                 const isCritical = zone.severity === 'CRITICAL';
                 const isHigh = zone.severity === 'HIGH';
 
@@ -358,7 +422,7 @@ export function Predictions() {
 
         {/* 7 Factors Breakdown Grid / Cards */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {selectedZone.xaiFactors.map((factor, idx) => (
+          {displayXaiFactors.map((factor, idx) => (
             <div
               key={factor.id}
               style={{
