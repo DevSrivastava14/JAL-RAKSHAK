@@ -1376,7 +1376,7 @@ async def seed_all():
 
     for col_name, data in collections_to_seed:
         col = db[col_name]
-        count = await col.count_documents()
+        count = await col.count_documents({})
         if count == 0:
             await col.insert_many(data)
             logger.info(f"Seeded {len(data)} documents into '{col_name}'.")
