@@ -1,6 +1,9 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+
 import { DashboardLayout } from './layouts/DashboardLayout';
+import { LandingPage } from './pages/LandingPage';
+
 import { Dashboard } from './pages/Dashboard';
 import { FloodMap } from './pages/FloodMap';
 import { Simulation } from './pages/Simulation';
@@ -14,8 +17,12 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+
+        {/* Landing Page */}
+        <Route path="/" element={<LandingPage />} />
+
+        {/* Dashboard / Application */}
         <Route path="/" element={<DashboardLayout />}>
-          <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="map" element={<FloodMap />} />
           <Route path="simulation" element={<Simulation />} />
@@ -26,6 +33,7 @@ export default function App() {
           <Route path="infrastructure" element={<Infrastructure />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
+
       </Routes>
     </BrowserRouter>
   );
