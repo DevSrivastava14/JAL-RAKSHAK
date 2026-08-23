@@ -4,6 +4,11 @@ from app.database.connection import get_database
 
 class InfrastructureService:
     @staticmethod
+    def _normalize_asset(asset: Dict[str, Any]) -> Dict[str, Any]:
+        asset.setdefault("dailyUsersAffected", 0)
+        return asset
+
+    @staticmethod
     async def get_drainage_nodes(city_id: str = "mumbai") -> List[Dict[str, Any]]:
         db = get_database()
         cursor = db["drainage_nodes"].find({"city_id": city_id.lower()})
@@ -15,7 +20,7 @@ class InfrastructureService:
         db = get_database()
         cursor = db["infrastructure"].find({"city_id": city_id.lower()})
         assets = await cursor.to_list(length=100)
-        return assets
+        return [InfrastructureService._normalize_asset(asset) for asset in assets]
 
     @staticmethod
     async def get_affected_infrastructure(city_id: str = "mumbai", min_severity: str = "HIGH") -> List[Dict[str, Any]]:
@@ -25,6 +30,7 @@ class InfrastructureService:
 
         cursor = db["infrastructure"].find({"city_id": city_id.lower()})
         assets = await cursor.to_list(length=100)
+        assets = [InfrastructureService._normalize_asset(asset) for asset in assets]
         
         affected = [
             a for a in assets
@@ -67,4 +73,4 @@ class InfrastructureService:
         )
 
         asset.update(update_fields)
-        return asset
+        return InfrastructureService._normalize_asset(asset)
