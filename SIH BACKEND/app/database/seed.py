@@ -853,7 +853,8 @@ def fetch_real_infrastructure(city_name="Mumbai, Maharashtra, India", city_id="m
     tags = {"amenity": ["hospital", "fire_station", "police"]}
     
     try:
-        gdf = ox.features_from_place(city_name, tags=tags)
+        center_coords = (19.0549990, 72.8692035)
+        gdf = ox.features_from_point(center_coords, tags=tags,dist=20000)
         gdf_points = gdf[gdf.geometry.type == 'Point']
         
         dynamic_assets = []
