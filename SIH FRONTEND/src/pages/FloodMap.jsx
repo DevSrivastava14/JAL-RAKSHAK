@@ -155,15 +155,24 @@ export function FloodMap() {
         if (isMounted && data) {
           const features = data.geojson?.features || [];
           const zonesById = new Map((zoneDetails || []).map(zone => [zone.id, zone]));
-          const toLayerItem = feature => ({
-            ...feature.properties,
-            ...(feature.properties?.layerType === 'FLOOD_ZONE' ? zonesById.get(feature.id) : {}),
-            id: feature.id || feature.properties?.zone_id || feature.properties?.road_id || feature.properties?.drain_id,
-              polygonCoords: feature.properties?.polygonCoords || feature.geometry?.coordinates?.[0]?.map(([lng, lat]) => [lat, lng]),
-            coordinates: feature.properties?.coordinates || feature.geometry?.coordinates?.map(([lng, lat]) => [lat, lng]),
-            lat: feature.properties?.lat ?? feature.geometry?.coordinates?.[1],
-            lng: feature.properties?.lng ?? feature.geometry?.coordinates?.[0]
-          });
+          const toLayerItem = feature => {
+            const geometryCoordinates = feature.geometry?.coordinates;
+            const isPoint = feature.geometry?.type === 'Point';
+            const isPolygon = feature.geometry?.type === 'Polygon';
+            const lineCoordinates = isPoint
+              ? undefined
+              : (isPolygon ? geometryCoordinates?.[0] : geometryCoordinates);
+
+            return {
+              ...feature.properties,
+              ...(feature.properties?.layerType === 'FLOOD_ZONE' ? zonesById.get(feature.id) : {}),
+              id: feature.id || feature.properties?.zone_id || feature.properties?.road_id || feature.properties?.drain_id,
+              polygonCoords: feature.properties?.polygonCoords || (isPolygon ? geometryCoordinates?.[0]?.map(([lng, lat]) => [lat, lng]) : undefined),
+              coordinates: feature.properties?.coordinates || lineCoordinates?.map(([lng, lat]) => [lat, lng]),
+              lat: feature.properties?.lat ?? (isPoint ? geometryCoordinates?.[1] : undefined),
+              lng: feature.properties?.lng ?? (isPoint ? geometryCoordinates?.[0] : undefined)
+            };
+          };
           const apiZones = features.filter(feature => feature.properties?.layerType === 'FLOOD_ZONE').map(toLayerItem);
           const apiRoads = features.filter(feature => feature.properties?.layerType === 'ROAD_NETWORK').map(toLayerItem);
           const apiDrainage = features.filter(feature => feature.properties?.layerType === 'DRAINAGE_NODE').map(toLayerItem);
@@ -765,22 +774,22 @@ export function FloodMap() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
                       <span style={{ color: 'var(--text-muted)' }}>Drainage Capacity:</span>
                       <span className="mono-text" style={{ color: 'var(--color-primary-light)', fontWeight: 700 }}>
-                        {selectedFeature.data.drainageCapacityLPS.toLocaleString()} LPS
+                        {Number(selectedFeature.data.drainageCapacityLPS ?? 0).toLocaleString()} LPS
                       </span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
                       <span style={{ color: 'var(--text-muted)' }}>Drainage Blockage:</span>
-                      <span className="mono-text" style={{ color: selectedFeature.data.drainageBlockagePct > 50 ? 'var(--color-critical)' : 'var(--color-warning)', fontWeight: 700 }}>
-                        {selectedFeature.data.drainageBlockagePct}% Choked
+                      <span className="mono-text" style={{ color: (selectedFeature.data.drainageBlockagePct ?? 0) > 50 ? 'var(--color-critical)' : 'var(--color-warning)', fontWeight: 700 }}>
+                        {selectedFeature.data.drainageBlockagePct ?? 0}% Choked
                       </span>
                     </div>
 
                     {/* Blockage Visual Bar */}
                     <div style={{ height: 6, borderRadius: 3, background: 'rgba(255, 255, 255, 0.08)', overflow: 'hidden' }}>
                       <div style={{
-                        width: `${selectedFeature.data.drainageBlockagePct}%`,
+                        width: `${selectedFeature.data.drainageBlockagePct ?? 0}%`,
                         height: '100%',
-                        background: selectedFeature.data.drainageBlockagePct > 50 ? 'var(--color-critical)' : 'var(--color-warning)'
+                          background: (selectedFeature.data.drainageBlockagePct ?? 0) > 50 ? 'var(--color-critical)' : 'var(--color-warning)'
                       }} />
                     </div>
                   </div>
