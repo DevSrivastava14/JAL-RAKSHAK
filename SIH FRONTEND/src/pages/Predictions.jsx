@@ -42,6 +42,7 @@ export function Predictions() {
   const [predictionsList, setPredictionsList] = useState(ZONES_PREDICTIONS);
   const [modelMetadata, setModelMetadata] = useState(AI_MODEL_METADATA);
   const [loading, setLoading] = useState(false);
+  const [predictionsLoaded, setPredictionsLoaded] = useState(false);
 
   // Selected Zone State
   const [selectedZoneId, setSelectedZoneId] = useState(ZONES_PREDICTIONS[0].id || 'ZONE-KUR-01');
@@ -65,12 +66,13 @@ export function Predictions() {
             // Map predictions to conform with UI format
             const mapped = data.predictions.map(p => ({
               ...p,
-              id: p.id || p.zone_id,
+              id: p.zone_id || p.id,
               name: p.zoneName || p.name || p.zone_id,
               zoneName: p.zoneName || p.name || p.zone_id,
               hourlyNowcast: p.hourlyNowcast || []
             }));
             setPredictionsList(mapped);
+            setSelectedZoneId(mapped[0].zone_id || mapped[0].id);
           }
           if (data.model_metadata) {
             setModelMetadata(data.model_metadata);
@@ -79,6 +81,7 @@ export function Predictions() {
       } catch (err) {
         console.warn('Backend API /predictions unavailable, using local mock predictions:', err.message);
       } finally {
+        if (isMounted) setPredictionsLoaded(true);
         if (isMounted) setLoading(false);
       }
     }
@@ -90,6 +93,8 @@ export function Predictions() {
   useEffect(() => {
     let isMounted = true;
     async function loadExplanation() {
+      if (!predictionsLoaded) return;
+
       const activeZone = predictionsList.find(z => z.id === selectedZoneId || z.zone_id === selectedZoneId);
       const zoneKey = activeZone?.zone_id || selectedZoneId;
       if (!zoneKey) return;
@@ -105,7 +110,7 @@ export function Predictions() {
     }
     loadExplanation();
     return () => { isMounted = false; };
-  }, [selectedZoneId, predictionsList]);
+  }, [selectedZoneId, predictionsList, predictionsLoaded]);
 
   // Active Zone Object
   const selectedZone = predictionsList.find(z => z.id === selectedZoneId || z.zone_id === selectedZoneId) || predictionsList[0] || ZONES_PREDICTIONS[0];
