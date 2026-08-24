@@ -10,8 +10,10 @@ async def broadcast_alert():
     """
     Sends migration data to frontend
     """
-
-    with open("mumbai_dem.tiff","r+") as file:
-        data = file.read()
-
-    return data
+    try:
+        with open("mumbai_dem.tiff","r+") as file:
+            data = file.read()
+    except Exception as e:
+        a = "hello"
+        
+    return "Migration route"
