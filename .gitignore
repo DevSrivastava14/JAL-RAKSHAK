@@ -13,3 +13,15 @@ dist/
 # IDE
 .vscode/
 .idea/
+
+# Local shell and workspace configuration
+/.bash_profile
+/.bashrc
+/.gitconfig
+/.mcp.json
+/.profile
+/.ripgreprc
+/.zprofile
+/.zshrc
+/.idea
+/.vscode

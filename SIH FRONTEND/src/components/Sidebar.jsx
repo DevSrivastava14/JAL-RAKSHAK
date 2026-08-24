@@ -12,7 +12,8 @@ import {
   Shield,
   Radio,
   Layers,
-  ChevronRight
+  ChevronRight,
+  Siren
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -23,7 +24,8 @@ const NAV_ITEMS = [
   { path: '/routes', label: 'Safe Routes', icon: Navigation, badge: 'GPS', badgeColor: 'primary' },
   { path: '/cities', label: 'Multi-City', icon: Globe, badge: '10 METROS', badgeColor: 'primary' },
   { path: '/alerts', label: 'Alerts', icon: AlertTriangle, badge: '3 NEW', badgeColor: 'critical' },
-  { path: '/infrastructure', label: 'Infrastructure', icon: Server, badge: '38/42' }
+  { path: '/infrastructure', label: 'Infrastructure', icon: Server, badge: '38/42' },
+    { path: '/action-center', label: 'Action Center', icon: Siren, badge: 'P1', badgeColor: 'critical' },
 ];
 
 export function Sidebar({ collapsed = false }) {

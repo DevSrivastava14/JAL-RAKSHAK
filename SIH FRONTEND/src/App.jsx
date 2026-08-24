@@ -12,6 +12,7 @@ import { Alerts } from './pages/Alerts';
 import { Infrastructure } from './pages/Infrastructure';
 import { SafeRoutes } from './pages/SafeRoutes';
 import { Cities } from './pages/Cities';
+import { ActionCenter } from './pages/ActionCenter';
 
 export default function App() {
   return (
@@ -31,6 +32,7 @@ export default function App() {
           <Route path="cities" element={<Cities />} />
           <Route path="alerts" element={<Alerts />} />
           <Route path="infrastructure" element={<Infrastructure />} />
+          <Route path="action-center" element={<ActionCenter />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
 
