@@ -13,7 +13,8 @@ import {
   Radio,
   Layers,
   ChevronRight,
-  Siren
+  Siren,
+  Droplets
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { path: '/alerts', label: 'Alerts', icon: AlertTriangle, badge: '3 NEW', badgeColor: 'critical' },
   { path: '/infrastructure', label: 'Infrastructure', icon: Server, badge: '38/42' },
     { path: '/action-center', label: 'Action Center', icon: Siren, badge: 'P1', badgeColor: 'critical' },
+    { path: '/drainage-mitigation', label: 'Drainage Mitigation', icon: Droplets, badge: 'DEMO', badgeColor: 'primary' },
 ];
 
 export function Sidebar({ collapsed = false }) {

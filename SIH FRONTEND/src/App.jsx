@@ -13,6 +13,7 @@ import { Infrastructure } from './pages/Infrastructure';
 import { SafeRoutes } from './pages/SafeRoutes';
 import { Cities } from './pages/Cities';
 import { ActionCenter } from './pages/ActionCenter';
+import { DrainageMitigation } from './pages/DrainageMitigation';
 
 export default function App() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="alerts" element={<Alerts />} />
           <Route path="infrastructure" element={<Infrastructure />} />
           <Route path="action-center" element={<ActionCenter />} />
+          <Route path="drainage-mitigation" element={<DrainageMitigation />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
 
