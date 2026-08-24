@@ -43,58 +43,62 @@ export function Sidebar({ collapsed = false }) {
     }}>
       {/* Top Section: Branding */}
       <div>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          padding: '4px 8px 20px 8px',
-          borderBottom: '1px solid var(--border-subtle)',
-          marginBottom: 20
+        <a href="/" style={{
+          textDecoration: 'none'
         }}>
           <div style={{
-            width: 40,
-            height: 40,
-            borderRadius: 'var(--radius-md)',
-            background: 'linear-gradient(135deg, #00b4d8 0%, #0077b6 100%)',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 0 16px rgba(0, 180, 216, 0.4)',
-            flexShrink: 0
+            gap: 12,
+            padding: '4px 8px 20px 8px',
+            borderBottom: '1px solid var(--border-subtle)',
+            marginBottom: 20
           }}>
-            <Shield size={22} color="#ffffff" />
-          </div>
-
-          {!collapsed && (
-            <div>
-              <div style={{
-                fontFamily: 'var(--font-heading)',
-                fontSize: '1.25rem',
-                fontWeight: 900,
-                letterSpacing: '0.04em',
-                background: 'linear-gradient(90deg, #ffffff 0%, #48cae4 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent'
-              }}>
-                JALRAKSHAK
-              </div>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                fontSize: '0.68rem',
-                color: 'var(--text-accent)',
-                fontWeight: 700,
-                letterSpacing: '0.08em',
-                fontFamily: 'var(--font-mono)'
-              }}>
-                <span>SIH26085</span>
-                <span>•</span>
-                <span>NOWCASTING</span>
-              </div>
+            <div style={{
+              width: 40,
+              height: 40,
+              borderRadius: 'var(--radius-md)',
+              background: 'linear-gradient(135deg, #00b4d8 0%, #0077b6 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 0 16px rgba(0, 180, 216, 0.4)',
+              flexShrink: 0
+            }}>
+              <Shield size={22} color="#ffffff" />
             </div>
-          )}
-        </div>
+  
+            {!collapsed && (
+              <div>
+                <div style={{
+                  fontFamily: 'var(--font-heading)',
+                  fontSize: '1.25rem',
+                  fontWeight: 900,
+                  letterSpacing: '0.04em',
+                  background: 'linear-gradient(90deg, #ffffff 0%, #48cae4 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent'
+                }}>
+                  JALRAKSHAK
+                </div>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontSize: '0.68rem',
+                  color: 'var(--text-accent)',
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  fontFamily: 'var(--font-mono)'
+                }}>
+                  <span>SIH26085</span>
+                  <span>•</span>
+                  <span>NOWCASTING</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </a>
 
         {/* Navigation Links */}
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
