@@ -101,7 +101,7 @@ export const apiClient = {
   },
 
   async dispatchAlert(alertData) {
-    return await apiFetch('/alerts/dispatch', {
+    return await apiFetch('/sms/broadcast', {
       method: 'POST',
       body: JSON.stringify(alertData)
     });

@@ -141,7 +141,7 @@ export function Alerts() {
         return;
       }
     } catch (err) {
-      console.warn('Backend API /alerts/dispatch failed, dispatching locally in state:', err.message);
+      console.warn('Backend API /sms/broadcast failed, dispatching locally in state:', err.message);
     }
 
     const newAlert = {
