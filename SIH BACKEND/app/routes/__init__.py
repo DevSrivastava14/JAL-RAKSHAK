@@ -9,6 +9,7 @@ from app.routes.infrastructure import router as infrastructure_router
 from app.routes.simulation import router as simulation_router
 from app.routes.routes import router as safe_routes_router
 from app.routes.broadcast import router as broadcast_sms
+from app.routes.migration import router as migration_route
 
 api_v1_router = APIRouter()
 
@@ -21,3 +22,4 @@ api_v1_router.include_router(infrastructure_router, prefix="/infrastructure", ta
 api_v1_router.include_router(simulation_router, prefix="/simulation", tags=["What-If Flood Simulation"])
 api_v1_router.include_router(safe_routes_router, prefix="/routes", tags=["Safe Route Recommendation"])
 api_v1_router.include_router(broadcast_sms,prefix="/sms",tags=["Broadcast SOS Message"])
+api_v1_router.include_router(migration,prefix="/route",tags=["Migration Route"])
